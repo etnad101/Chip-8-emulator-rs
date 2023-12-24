@@ -158,38 +158,22 @@ impl CPU {
     }
 
     fn display(&mut self, x: usize, y: usize, n: usize) {
-        // self.reg_v[0x0F] = 0;
-        
-        // for byte in 0..n {
-        //     let y_coord = self.reg_v[(y as usize) + byte as usize] % Y_PIXELS as u8;
-        //     for bit in 0..8 {
-        //         let x_coord = self.reg_v[(x as usize) + bit as usize] % X_PIXELS as u8;
-        //         let color: u8 = (self.memory[(self.reg_i as usize) + (byte as usize)] >> (7-bit)) & 1;
-        //         let vram_addr = (y_coord as usize * X_PIXELS as usize * 3) + x_coord  as usize * 3;
-        //         let state = (self.vram[vram_addr] >> 7) ^ color;
-        //         self.vram[vram_addr] = ON * state;
-        //         self.vram[vram_addr + 1] = ON * state;
-        //         self.vram[vram_addr + 2] = ON * state;
-        //     }
-        // }
-
-        // self.update_screen = true;
-
         self.reg_v[0x0f] = 0;
         for byte in 0..n {
-            let y = (self.reg_v[y] as usize + byte) % X_PIXELS as usize;
+            let y = (self.reg_v[y] as usize + byte) % Y_PIXELS as usize;
             for bit in 0..8 {
                 let x = (self.reg_v[x] as usize + bit) % X_PIXELS as usize;
                 let color = (self.memory[self.reg_i + byte] >> (7 - bit)) & 1;
-                let addr = (3 * y * Y_PIXELS as usize) + x * 3;
-                if self.vram[addr] == 0 {
-                    color =
-                }
-                self.vram[addr] ^= color;
-
+                let vram_addr = (y * X_PIXELS as usize * 3) + (x * 3);
+                let new_color = (self.vram[vram_addr] / 255) ^ color;
+                self.reg_v[0x0f] |= color & (self.vram[vram_addr] / 255);
+                self.vram[vram_addr] = new_color * 255;
+                self.vram[vram_addr + 1] = new_color * 255;
+                self.vram[vram_addr + 2] = new_color * 255;
             }
         }
         self.update_screen = true;
     }
+    
 
 }

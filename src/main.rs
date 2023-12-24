@@ -40,7 +40,7 @@ fn main() {
 
     // Read program from file
     let program = fs::read("./roms/IBM Logo.ch8").expect("Unable to read file");
-    // let program = vec![0x00, 0xE0, 0x12, 0x04, 0x12, 0x02];
+
     // Init emulator
     let mut cpu = CPU::new();
     cpu.load_program(program);
