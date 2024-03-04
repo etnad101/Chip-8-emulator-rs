@@ -53,7 +53,7 @@ impl CPU {
             update_screen: true,
             config,
         };
-        
+
         for i in 0..80 {
             cpu.memory[0x50 + i] = FONT[i];
         }

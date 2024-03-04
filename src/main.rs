@@ -1,6 +1,6 @@
 pub mod config;
-pub mod cpu;
 pub mod constants;
+pub mod cpu;
 
 use config::Config;
 use constants::*;
@@ -60,8 +60,7 @@ fn handle_user_input(cpu: &mut CPU, event_pump: &mut EventPump) {
                 Some(Keycode::F) => cpu.input &= 0b1011_1111_1111_1111,
                 Some(Keycode::V) => cpu.input &= 0b0111_1111_1111_1111,
                 _ => (),
-
-            }
+            },
 
             _ => (),
         }
