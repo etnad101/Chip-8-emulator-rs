@@ -96,9 +96,22 @@ fn main() {
     // Init emulator
     let mut cpu = CPU::new(config);
     cpu.load_program(program);
-
+    let mut frame_start = std::time::Instant::now();
+    let mut uptime = std::time::Duration::from_secs(0);
     // Run emulator
     cpu.run_with_callback(move |cpu| {
+        let frame_end = std::time::Instant::now();
+
+        let frame_time = frame_end - frame_start;
+
+        uptime += frame_time;
+
+        dbg!(uptime);
+
+        frame_start = std::time::Instant::now();
+        // add variable clock speed
+        // default should be 700 instructions/s
+        // handle timers at 60hz
         handle_user_input(cpu, &mut event_pump);
 
         if cpu.update_screen {
