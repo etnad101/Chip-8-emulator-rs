@@ -106,6 +106,7 @@ fn main() {
 
         uptime += frame_time;
 
+        dbg!(frame_time);
         dbg!(uptime);
 
         frame_start = std::time::Instant::now();
