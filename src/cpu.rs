@@ -5,6 +5,7 @@ use crate::{
     constants::*,
 };
 
+// Build in chip8 characters
 const FONT: [u8; 80] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -27,7 +28,7 @@ const FONT: [u8; 80] = [
 pub struct CPU {
     pub memory: [u8; MEM_SIZE],
     pub pc: usize,
-    pub reg_i: usize,
+    pub reg_i: u16,
     pub stack: Vec<u16>,
     pub delay_timer: u8,
     pub sound_timer: u8,
@@ -61,7 +62,7 @@ impl CPU {
         cpu
     }
 
-    // Debug
+    // Debug memory viwer
     pub fn dump_mem(&self) {
         let mut x = 0;
         for i in 0..32 {
@@ -126,6 +127,11 @@ impl CPU {
             match instruction {
                 (0x0, 0x0, 0xe, 0x0) => self.clear_screen(),
                 (0x0, 0x0, 0xe, 0xe) => self.sub_return(),
+                (0xf, _, 0x1, 0xe) => self.add_to_index(x),
+                (0xf, _, 0x1, 0x8) => self.set_sound_timer(x),
+                (0xf, _, 0x1, 0x5) => self.set_delay_timer(x),
+                (0xf, _, 0x0, 0xa) => self.get_key(x),
+                (0xf, _, 0x0, 0x7) => self.get_delay_timer(x),
                 (0xe, _, 0xa, 0x1) => self.skip_if_up(x),
                 (0xe, _, 0x9, 0xe) => self.skip_if_down(x),
                 (0x9, _, _, 0x0) => self.vy_skip_not_eq(x, y),
@@ -170,7 +176,7 @@ impl CPU {
     }
 
     fn set_index(&mut self, nnn: usize) {
-        self.reg_i = nnn;
+        self.reg_i = nnn as u16;
     }
 
     fn set_reg_v(&mut self, x: usize, nn: usize) {
@@ -346,13 +352,54 @@ impl CPU {
         }
     }
 
+    fn get_delay_timer(&mut self, x: usize) {
+       self.reg_v[x] = self.delay_timer; 
+    }
+
+    fn set_delay_timer(&mut self, x: usize) {
+        self.delay_timer = self.reg_v[x]
+    }
+    
+    fn set_sound_timer(&mut self, x: usize) {
+        self.sound_timer = self.reg_v[x]
+    }
+
+    fn add_to_index(&mut self, x: usize) {
+        let vx = self.reg_v[x] as usize;
+        let wrapped: bool; 
+        (self.reg_i, wrapped) = self.reg_i.overflowing_add(vx as u16);
+
+        if !self.config.flag_set(InstructionFlags::DontIndexOverflow) {
+            if wrapped {
+                self.reg_v[0xF] = 1;
+            } else {
+                self.reg_v[0xF] = 0;
+            }
+        }
+    }
+
+    fn get_key(&mut self, x: usize) {
+        if self.input == 0 {
+            self.pc -= 2
+        } else {
+            let mut key = self.input;
+            let mut i: u8 = 0;
+            while key > 1 {
+                key >>= 1;
+                i += 1;
+            }
+
+            self.reg_v[x] = i;
+        }
+    }
+
     fn display(&mut self, x: usize, y: usize, n: usize) {
         self.reg_v[0x0f] = 0;
         for byte in 0..n {
             let y = (self.reg_v[y] as usize + byte) % Y_PIXELS as usize;
             for bit in 0..8 {
                 let x = (self.reg_v[x] as usize + bit) % X_PIXELS as usize;
-                let color = (self.memory[self.reg_i + byte] >> (7 - bit)) & 1;
+                let color = (self.memory[(self.reg_i + byte as u16) as usize] >> (7 - bit)) & 1;
                 let vram_addr = (y * X_PIXELS as usize * 3) + (x * 3);
                 let new_color = (self.vram[vram_addr] / 255) ^ color;
                 self.reg_v[0x0f] |= color & (self.vram[vram_addr] / 255);
@@ -438,6 +485,37 @@ mod tests {
 
             assert_eq!(cpu.reg_v[x], 0b0000_1100);
             assert_eq!(cpu.reg_v[0xF], 1);
+        }
+    }
+
+    mod keys {
+        use super::*;
+
+        #[test]
+        fn test_get_key() {
+            let config = Config::default();
+            let mut cpu = CPU::new(config);
+
+            cpu.input = 0b1000_0000_0000_0000;
+            cpu.get_key(0);
+            assert_eq!(cpu.reg_v[0], 0xf);
+
+            cpu.input = 0b0000_0000_0100_0000;
+            cpu.get_key(0);
+            assert_eq!(cpu.reg_v[0], 0x6);
+            
+
+            cpu.input = 0b0000_0100_0001_0000;
+            cpu.get_key(0);
+            assert_eq!(cpu.reg_v[0], 0xa);
+
+            cpu.input = 0b0000_0000_0001_0000;
+            cpu.get_key(0);
+            assert_eq!(cpu.reg_v[0], 0x4);
+        
+            cpu.input = 0b0000_0000_0000_0001;
+            cpu.get_key(0);
+            assert_eq!(cpu.reg_v[0], 0x0);
         }
     }
 }

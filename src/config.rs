@@ -9,6 +9,7 @@ pub enum InstructionFlags {
     Shift = 0b1000_0000,
     JumpWithOffset = 0b0100_0000,
     StoreLoadMem = 0b0010_0000,
+    DontIndexOverflow = 0b0001_0000,
 }
 
 impl BitOr for InstructionFlags {

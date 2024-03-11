@@ -13,7 +13,6 @@ use sdl2::pixels::PixelFormatEnum;
 use sdl2::EventPump;
 
 fn handle_user_input(cpu: &mut CPU, event_pump: &mut EventPump) {
-    println!("Inputs: {:#016b}", cpu.input);
     for event in event_pump.poll_iter() {
         match event {
             Event::Quit { .. }
@@ -67,6 +66,17 @@ fn handle_user_input(cpu: &mut CPU, event_pump: &mut EventPump) {
     }
 }
 
+// Decrements cpu timers
+fn handle_timers(cpu: &mut CPU) {
+    if cpu.delay_timer > 0 {
+        cpu.delay_timer -= 1;
+    }
+
+    if cpu.sound_timer > 0 {
+        cpu.sound_timer -= 1;
+    }
+}
+
 fn main() {
     // Init SDL2
     let sdl2_context = sdl2::init().unwrap();
@@ -77,7 +87,7 @@ fn main() {
         .build()
         .unwrap();
 
-    let mut canvas = window.into_canvas().present_vsync().build().unwrap();
+    let mut canvas = window.into_canvas().build().unwrap();
     let mut event_pump = sdl2_context.event_pump().unwrap();
     canvas
         .set_scale(PIXEL_SIZE as f32, PIXEL_SIZE as f32)
@@ -96,25 +106,32 @@ fn main() {
     // Init emulator
     let mut cpu = CPU::new(config);
     cpu.load_program(program);
+
     let mut frame_start = std::time::Instant::now();
-    let mut uptime = std::time::Duration::from_secs(0);
+    let mut timer_count = std::time::Duration::from_secs(0);
+
     // Run emulator
     cpu.run_with_callback(move |cpu| {
+        // Handle program timing
         let frame_end = std::time::Instant::now();
 
         let frame_time = frame_end - frame_start;
 
-        uptime += frame_time;
-
-        dbg!(frame_time);
-        dbg!(uptime);
+        timer_count += frame_time;
 
         frame_start = std::time::Instant::now();
-        // add variable clock speed
-        // default should be 700 instructions/s
-        // handle timers at 60hz
+
         handle_user_input(cpu, &mut event_pump);
 
+        // Update cpu timers @ 60hz
+        if timer_count >= std::time::Duration::from_micros(16666) {
+            handle_timers(cpu);
+            timer_count = std::time::Duration::from_secs(0);
+        }
+
+        // Add sound handler here
+
+        // Only updates screen if draw method is called
         if cpu.update_screen {
             texture.update(None, &cpu.vram, 64 * 3).unwrap();
             canvas.copy(&texture, None, None).unwrap();
