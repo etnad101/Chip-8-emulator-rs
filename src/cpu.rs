@@ -55,9 +55,7 @@ impl CPU {
             config,
         };
 
-        for i in 0..80 {
-            cpu.memory[0x50 + i] = FONT[i];
-        }
+        cpu.memory[FONT_ADDR..(FONT.len() + FONT_ADDR)].copy_from_slice(&FONT[..]);
 
         cpu
     }
@@ -87,16 +85,14 @@ impl CPU {
     }
 
     pub fn load_program(&mut self, program: Vec<u8>) {
-        for i in 0..program.len() {
-            self.memory[PROGRAM_START + i] = program[i];
-        }
+        self.memory[PROGRAM_START..(program.len() + PROGRAM_START)].copy_from_slice(&program[..])
     }
 
     // Main loop
 
     fn fetch(&mut self) -> (u8, u8, u8, u8) {
-        let first_byte = self.memory[self.pc as usize];
-        let second_byte = self.memory[(self.pc + 1) as usize];
+        let first_byte = self.memory[self.pc];
+        let second_byte = self.memory[self.pc + 1];
         let instruction: u16 = (first_byte as u16) << 8 | second_byte as u16;
         self.pc += 2;
 
@@ -186,7 +182,7 @@ impl CPU {
     fn add_reg_v(&mut self, x: usize, nn: usize) {
         let mut vx = self.reg_v[x];
         vx = vx.wrapping_add(nn as u8);
-        self.reg_v[x as usize] = vx;
+        self.reg_v[x] = vx;
     }
 
     fn jump(&mut self, nnn: usize) {
@@ -353,20 +349,20 @@ impl CPU {
     }
 
     fn get_delay_timer(&mut self, x: usize) {
-       self.reg_v[x] = self.delay_timer; 
+        self.reg_v[x] = self.delay_timer;
     }
 
     fn set_delay_timer(&mut self, x: usize) {
         self.delay_timer = self.reg_v[x]
     }
-    
+
     fn set_sound_timer(&mut self, x: usize) {
         self.sound_timer = self.reg_v[x]
     }
 
     fn add_to_index(&mut self, x: usize) {
         let vx = self.reg_v[x] as usize;
-        let wrapped: bool; 
+        let wrapped: bool;
         (self.reg_i, wrapped) = self.reg_i.overflowing_add(vx as u16);
 
         if !self.config.flag_set(InstructionFlags::DontIndexOverflow) {
@@ -503,7 +499,6 @@ mod tests {
             cpu.input = 0b0000_0000_0100_0000;
             cpu.get_key(0);
             assert_eq!(cpu.reg_v[0], 0x6);
-            
 
             cpu.input = 0b0000_0100_0001_0000;
             cpu.get_key(0);
@@ -512,7 +507,7 @@ mod tests {
             cpu.input = 0b0000_0000_0001_0000;
             cpu.get_key(0);
             assert_eq!(cpu.reg_v[0], 0x4);
-        
+
             cpu.input = 0b0000_0000_0000_0001;
             cpu.get_key(0);
             assert_eq!(cpu.reg_v[0], 0x0);

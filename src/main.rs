@@ -1,3 +1,10 @@
+/*
+Use 'clap' for command line parsing
+add debug config mode that allows you to output call stack to file
+add sound handler
+add clock rate limiter
+*/
+
 pub mod config;
 pub mod constants;
 pub mod cpu;

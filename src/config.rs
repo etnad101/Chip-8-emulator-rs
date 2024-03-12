@@ -1,6 +1,6 @@
 /*
 Used to specify behaviour for specific functionns.
-"Modern" behavior is used by default if NONE is used
+"Modern" behavior is used by default
 */
 
 use std::ops::BitOr;
@@ -26,15 +26,12 @@ impl BitOr<InstructionFlags> for u8 {
     }
 }
 
+#[derive(Default)]
 pub struct Config {
     flags: u8,
 }
 
 impl Config {
-    pub fn default() -> Self {
-        Config { flags: 0 }
-    }
-
     pub fn from(flags: u8) -> Self {
         Config { flags }
     }
