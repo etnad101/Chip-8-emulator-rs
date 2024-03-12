@@ -4,6 +4,7 @@ Use 'clap' for command line parsing
 add debug config mode that allows you to output call stack to file
 add sound handler
 add clock rate limiter
+abstract functions into drivers
 add colour options
 add better error handling. Don't Panic, return clean errors to the user
 
@@ -11,13 +12,15 @@ Tests
 https://github.com/Timendus/chip8-test-suite?tab=readme-ov-file#available-tests
 */
 
-pub mod config;
-pub mod constants;
-pub mod cpu;
+mod config;
+mod constants;
+mod cpu;
+mod drivers;
 
 use config::{Config, ConfigFlags};
 use constants::*;
 use std::fs;
+use drivers::audio_driver::AudioDriver;
 
 use cpu::CPU;
 use sdl2::event::Event;
@@ -98,10 +101,16 @@ fn handle_timers(cpu: &mut CPU) {
     }
 }
 
-fn main() {
-    let args = Args::parse();
+fn handle_sound(cpu: &mut CPU, audio: &AudioDriver) {
+    if cpu.sound_timer > 0 {
+        audio.start_beep()
+    } else {
+        audio.stop_beep()
+    }
+}
 
-    let rom = if args.test > 0 {
+fn get_rom(args: Args) -> Vec<u8> {
+    let path = if args.test > 0 {
         match args.test {
             1 => "roms/tests/1-chip8-logo.ch8",
             2 => "roms/tests/2-ibm-logo.ch8",
@@ -117,17 +126,22 @@ fn main() {
         "roms/IBM Logo.ch8"
     };
 
+    fs::read(path).expect("Unable to read file")
+}
+
+fn main() {
+    let args = Args::parse();
+
     // Init SDL2
     let sdl2_context = sdl2::init().unwrap();
     let video_subsystem = sdl2_context.video().unwrap();
     let window = video_subsystem
-        .window("Snake Game", X_PIXELS * PIXEL_SIZE, Y_PIXELS * PIXEL_SIZE)
+        .window("Chip8 Emulator", X_PIXELS * PIXEL_SIZE, Y_PIXELS * PIXEL_SIZE)
         .position_centered()
         .build()
         .unwrap();
 
     let mut canvas = window.into_canvas().build().unwrap();
-    let mut event_pump = sdl2_context.event_pump().unwrap();
     canvas
         .set_scale(PIXEL_SIZE as f32, PIXEL_SIZE as f32)
         .unwrap();
@@ -137,15 +151,18 @@ fn main() {
         .create_texture_target(PixelFormatEnum::RGB24, X_PIXELS, Y_PIXELS)
         .unwrap();
 
+    let mut event_pump = sdl2_context.event_pump().unwrap();
+    let audio = AudioDriver::new(&sdl2_context);
+
 
     // Read program from file
-    let program = fs::read(rom).expect("Unable to read file");
-
     let config = Config::from(ConfigFlags::DontIndexOverflow | ConfigFlags::JumpWithOffset | ConfigFlags::Shift | ConfigFlags::StoreLoadMem);
 
     // Init emulator
     let mut cpu = CPU::new(config);
-    cpu.load_program(program);
+
+    let rom = get_rom(args);
+    cpu.load_program(rom);
 
     let mut frame_start = std::time::Instant::now();
     let mut timer_count = std::time::Duration::from_secs(0);
@@ -161,6 +178,7 @@ fn main() {
 
         frame_start = std::time::Instant::now();
 
+        // send input to cpu
         handle_user_input(cpu, &mut event_pump);
 
         // Update cpu timers @ 60hz
@@ -169,7 +187,7 @@ fn main() {
             timer_count = std::time::Duration::from_secs(0);
         }
 
-        // Add sound handler here
+        handle_sound(cpu, &audio);
 
         // Only updates screen if draw method is called
         if cpu.update_screen {

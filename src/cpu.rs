@@ -449,11 +449,11 @@ impl CPU {
                 let x = (self.reg_v[x] as usize + bit) % X_PIXELS as usize;
                 let color = (self.memory[(self.reg_i + byte as u16) as usize] >> (7 - bit)) & 1;
                 let vram_addr = (y * X_PIXELS as usize * 3) + (x * 3);
-                let new_color = (self.vram[vram_addr] / 255) ^ color;
-                self.reg_v[0x0f] |= color & (self.vram[vram_addr] / 255);
-                self.vram[vram_addr] = new_color * 255;
-                self.vram[vram_addr + 1] = new_color * 255;
-                self.vram[vram_addr + 2] = new_color * 255;
+                let new_color = (self.vram[vram_addr] / ON) ^ color;
+                self.reg_v[0x0f] |= color & (self.vram[vram_addr] / ON);
+                self.vram[vram_addr] = new_color * ON;
+                self.vram[vram_addr + 1] = new_color * ON;
+                self.vram[vram_addr + 2] = new_color * ON;
             }
         }
         self.update_screen = true;
