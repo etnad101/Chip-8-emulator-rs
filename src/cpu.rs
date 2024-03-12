@@ -1,7 +1,7 @@
 use rand::Rng;
 
 use crate::{
-    config::{Config, InstructionFlags},
+    config::{Config, ConfigFlags},
     constants::*,
 };
 
@@ -123,6 +123,10 @@ impl CPU {
             match instruction {
                 (0x0, 0x0, 0xe, 0x0) => self.clear_screen(),
                 (0x0, 0x0, 0xe, 0xe) => self.sub_return(),
+                (0xf, _, 0x6, 0x5) => self.load_mem(x),
+                (0xf, _, 0x5, 0x5) => self.store_mem(x),
+                (0xf, _, 0x3, 0x3) => self.bcd_conversion(x),
+                (0xf, _, 0x2, 0x9) => self.font_character(x),
                 (0xf, _, 0x1, 0xe) => self.add_to_index(x),
                 (0xf, _, 0x1, 0x8) => self.set_sound_timer(x),
                 (0xf, _, 0x1, 0x5) => self.set_delay_timer(x),
@@ -140,7 +144,7 @@ impl CPU {
                 (0x8, _, _, 0x6) => self.shift_right(x, y),
                 (0x8, _, _, 0x7) => self.vy_sub_vx(x, y),
                 (0x8, _, _, 0xe) => self.shift_left(x, y),
-                (0x5, _, _, 0xe) => self.vy_skip_eq(x, y),
+                (0x5, _, _, 0x0) => self.vy_skip_eq(x, y),
                 (0xd, _, _, _) => self.display(x, y, n),
                 (0xc, _, _, _) => self.random(x, nn),
                 (0xb, _, _, _) => self.jump_offset(x, nnn),
@@ -294,7 +298,7 @@ impl CPU {
     }
 
     fn shift_left(&mut self, x: usize, y: usize) {
-        if self.config.flag_set(InstructionFlags::Shift) {
+        if self.config.flag_set(ConfigFlags::Shift) {
             self.reg_v[x] = self.reg_v[y]
         }
 
@@ -305,7 +309,7 @@ impl CPU {
     }
 
     fn shift_right(&mut self, x: usize, y: usize) {
-        if self.config.flag_set(InstructionFlags::Shift) {
+        if self.config.flag_set(ConfigFlags::Shift) {
             self.reg_v[x] = self.reg_v[y]
         }
 
@@ -316,7 +320,7 @@ impl CPU {
     }
 
     fn jump_offset(&mut self, x: usize, nnn: usize) {
-        self.pc = if self.config.flag_set(InstructionFlags::JumpWithOffset) {
+        self.pc = if self.config.flag_set(ConfigFlags::JumpWithOffset) {
             let v0 = self.reg_v[0] as usize;
             nnn + v0
         } else {
@@ -365,7 +369,7 @@ impl CPU {
         let wrapped: bool;
         (self.reg_i, wrapped) = self.reg_i.overflowing_add(vx as u16);
 
-        if !self.config.flag_set(InstructionFlags::DontIndexOverflow) {
+        if !self.config.flag_set(ConfigFlags::DontIndexOverflow) {
             if wrapped {
                 self.reg_v[0xF] = 1;
             } else {
@@ -386,6 +390,54 @@ impl CPU {
             }
 
             self.reg_v[x] = i;
+        }
+    }
+
+    fn font_character(&mut self, x: usize) {
+        let character = self.reg_v[x];
+
+        let addr = FONT_ADDR + character as usize;
+
+        self.reg_i = addr as u16;
+    }
+
+    fn bcd_conversion(&mut self, x: usize) {
+        let vx = self.reg_v[x] as f32;
+
+        let hundreds = (vx / 100.0).floor() as u8;
+        let tens = ((vx / 10.0) % 10.0).floor() as u8;
+        let ones = (vx % 10.0) as u8;
+
+        self.memory[self.reg_i as usize] = hundreds;
+        self.memory[(self.reg_i + 1) as usize] = tens;
+        self.memory[(self.reg_i + 2) as usize] = ones;
+    }
+
+    fn store_mem(&mut self, x: usize) {   
+        for offset in 0..=x {
+            if self.config.flag_set(ConfigFlags::StoreLoadMem) {
+                let value = self.reg_v[offset];
+                self.memory[self.reg_i as usize] = value;
+                self.reg_i += 1;
+            } else {
+                let value = self.reg_v[offset];
+                let addr = self.reg_i + offset as u16;
+                self.memory[addr as usize] = value;
+            }
+        }
+    }
+
+    fn load_mem(&mut self, x: usize) {   
+        for offset in 0..=x {
+            if self.config.flag_set(ConfigFlags::StoreLoadMem) {
+                let value = self.memory[self.reg_i as usize];
+                self.reg_v[offset] = value;
+                self.reg_i += 1;
+            } else {
+                let addr = self.reg_i + offset as u16;
+                let value = self.memory[addr as usize];
+                self.reg_v[offset] = value;
+            }
         }
     }
 
@@ -430,7 +482,7 @@ mod tests {
 
             assert_eq!(cpu.reg_v[x], 0b1000_0000);
 
-            let config = Config::from(InstructionFlags::Shift as u8);
+            let config = Config::from(ConfigFlags::Shift as u8);
             let mut cpu = CPU::new(config);
 
             cpu.reg_v[y] = 0b0000_1000;

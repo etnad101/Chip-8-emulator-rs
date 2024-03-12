@@ -1,15 +1,21 @@
 /*
 Use 'clap' for command line parsing
+    be able to specigy quirks and the desired program, also a debug output file
 add debug config mode that allows you to output call stack to file
 add sound handler
 add clock rate limiter
+add colour options
+add better error handling. Don't Panic, return clean errors to the user
+
+Tests
+https://github.com/Timendus/chip8-test-suite?tab=readme-ov-file#available-tests
 */
 
 pub mod config;
 pub mod constants;
 pub mod cpu;
 
-use config::Config;
+use config::{Config, ConfigFlags};
 use constants::*;
 use std::fs;
 
@@ -18,6 +24,14 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::EventPump;
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+struct Args {
+    // Test Program to be used (1-8, 0=none)
+    #[arg(short, long, default_value_t = 0)]
+    test: u8,
+}
 
 fn handle_user_input(cpu: &mut CPU, event_pump: &mut EventPump) {
     for event in event_pump.poll_iter() {
@@ -85,6 +99,24 @@ fn handle_timers(cpu: &mut CPU) {
 }
 
 fn main() {
+    let args = Args::parse();
+
+    let rom = if args.test > 0 {
+        match args.test {
+            1 => "roms/tests/1-chip8-logo.ch8",
+            2 => "roms/tests/2-ibm-logo.ch8",
+            3 => "roms/tests/3-corax+.ch8",
+            4 => "roms/tests/4-flags.ch8",
+            5 => "roms/tests/5-quirks.ch8",
+            6 => "roms/tests/6-keypad.ch8",
+            7 => "roms/tests/7-beep.ch8",
+            8 => "roms/tests/8-scrolling.ch8",
+            _ => panic!("The test program must be from 1-8")
+        }
+    } else {
+        "roms/IBM Logo.ch8"
+    };
+
     // Init SDL2
     let sdl2_context = sdl2::init().unwrap();
     let video_subsystem = sdl2_context.video().unwrap();
@@ -105,10 +137,11 @@ fn main() {
         .create_texture_target(PixelFormatEnum::RGB24, X_PIXELS, Y_PIXELS)
         .unwrap();
 
-    // Read program from file
-    let program = fs::read("./roms/IBM Logo.ch8").expect("Unable to read file");
 
-    let config = Config::default();
+    // Read program from file
+    let program = fs::read(rom).expect("Unable to read file");
+
+    let config = Config::from(ConfigFlags::DontIndexOverflow | ConfigFlags::JumpWithOffset | ConfigFlags::Shift | ConfigFlags::StoreLoadMem);
 
     // Init emulator
     let mut cpu = CPU::new(config);
