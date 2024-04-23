@@ -19,15 +19,15 @@ mod drivers;
 
 use config::{Config, ConfigFlags};
 use constants::*;
-use std::fs;
 use drivers::audio_driver::AudioDriver;
+use std::fs;
 
+use clap::Parser;
 use cpu::CPU;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::EventPump;
-use clap::Parser;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -120,7 +120,7 @@ fn get_rom(args: Args) -> Vec<u8> {
             6 => "roms/tests/6-keypad.ch8",
             7 => "roms/tests/7-beep.ch8",
             8 => "roms/tests/8-scrolling.ch8",
-            _ => panic!("The test program must be from 1-8")
+            _ => panic!("The test program must be from 1-8"),
         }
     } else {
         "roms/IBM Logo.ch8"
@@ -136,7 +136,11 @@ fn main() {
     let sdl2_context = sdl2::init().unwrap();
     let video_subsystem = sdl2_context.video().unwrap();
     let window = video_subsystem
-        .window("Chip8 Emulator", X_PIXELS * PIXEL_SIZE, Y_PIXELS * PIXEL_SIZE)
+        .window(
+            "Chip8 Emulator",
+            X_PIXELS * PIXEL_SIZE,
+            Y_PIXELS * PIXEL_SIZE,
+        )
         .position_centered()
         .build()
         .unwrap();
@@ -154,9 +158,13 @@ fn main() {
     let mut event_pump = sdl2_context.event_pump().unwrap();
     let audio = AudioDriver::new(&sdl2_context);
 
-
     // Read program from file
-    let config = Config::from(ConfigFlags::DontIndexOverflow | ConfigFlags::JumpWithOffset | ConfigFlags::Shift | ConfigFlags::StoreLoadMem);
+    let config = Config::from(
+        ConfigFlags::DontIndexOverflow
+            | ConfigFlags::JumpWithOffset
+            | ConfigFlags::Shift
+            | ConfigFlags::StoreLoadMem,
+    );
 
     // Init emulator
     let mut cpu = CPU::new(config);
@@ -187,7 +195,7 @@ fn main() {
             timer_count = std::time::Duration::from_secs(0);
         }
 
-        handle_sound(cpu, &audio);
+        // handle_sound(cpu, &audio);
 
         // Only updates screen if draw method is called
         if cpu.update_screen {

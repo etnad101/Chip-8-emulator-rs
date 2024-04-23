@@ -256,45 +256,47 @@ impl CPU {
     }
 
     fn add_vx_vy(&mut self, x: usize, y: usize) {
-        let vx = self.reg_v[x] as usize;
-        let vy = self.reg_v[y] as usize;
+        let vx = self.reg_v[x];
+        let vy = self.reg_v[y];
 
-        let sum = vx + vy;
-        if sum > 255 {
+        let (sum, overflow) = vx.overflowing_add(vy);
+
+        self.reg_v[x] = sum;
+
+        if overflow {
             self.reg_v[0xF] = 1;
         } else {
             self.reg_v[0xF] = 0;
         }
-
-        self.reg_v[x] = sum as u8;
     }
 
     fn vx_sub_vy(&mut self, x: usize, y: usize) {
         let vx = self.reg_v[x];
         let vy = self.reg_v[y];
 
-        if vx > vy {
-            self.reg_v[0xF] = 1;
-        } else {
-            self.reg_v[0xF] = 0;
-        }
+        let (diff, overflow) = vx.overflowing_sub(vy);
 
-        let diff = vx.wrapping_sub(vy);
         self.reg_v[x] = diff;
+
+        if overflow {
+            self.reg_v[0xF] = 0;
+        } else {
+            self.reg_v[0xF] = 1;
+        }
     }
 
     fn vy_sub_vx(&mut self, x: usize, y: usize) {
         let vx = self.reg_v[x];
         let vy = self.reg_v[y];
 
-        if vy > vx {
-            self.reg_v[0xF] = 1;
-        } else {
-            self.reg_v[0xF] = 0;
-        }
-
-        let diff = vy.wrapping_sub(vx);
+        let (diff, overflow) = vy.overflowing_sub(vx);
         self.reg_v[x] = diff;
+
+        if overflow {
+            self.reg_v[0xF] = 0;
+        } else {
+            self.reg_v[0xF] = 1;
+        }
     }
 
     fn shift_left(&mut self, x: usize, y: usize) {
@@ -303,9 +305,8 @@ impl CPU {
         }
 
         let vx = self.reg_v[x];
+        self.reg_v[x] = vx << 1;
         self.reg_v[0xF] = (vx & 0b1000_0000) >> 7;
-
-        self.reg_v[x] = vx << 1
     }
 
     fn shift_right(&mut self, x: usize, y: usize) {
@@ -314,9 +315,8 @@ impl CPU {
         }
 
         let vx = self.reg_v[x];
+        self.reg_v[x] = vx >> 1;
         self.reg_v[0xF] = vx & 0b0000_0001;
-
-        self.reg_v[x] = vx >> 1
     }
 
     fn jump_offset(&mut self, x: usize, nnn: usize) {
@@ -413,7 +413,7 @@ impl CPU {
         self.memory[(self.reg_i + 2) as usize] = ones;
     }
 
-    fn store_mem(&mut self, x: usize) {   
+    fn store_mem(&mut self, x: usize) {
         for offset in 0..=x {
             if self.config.flag_set(ConfigFlags::StoreLoadMem) {
                 let value = self.reg_v[offset];
@@ -427,7 +427,7 @@ impl CPU {
         }
     }
 
-    fn load_mem(&mut self, x: usize) {   
+    fn load_mem(&mut self, x: usize) {
         for offset in 0..=x {
             if self.config.flag_set(ConfigFlags::StoreLoadMem) {
                 let value = self.memory[self.reg_i as usize];
