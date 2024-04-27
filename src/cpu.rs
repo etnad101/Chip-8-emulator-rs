@@ -240,18 +240,21 @@ impl CPU {
     fn binary_or(&mut self, x: usize, y: usize) {
         let vx = self.reg_v[x];
         let vy = self.reg_v[y];
+        self.reg_v[0xF] = 0;
         self.reg_v[x] = vx | vy;
     }
 
     fn binary_and(&mut self, x: usize, y: usize) {
         let vx = self.reg_v[x];
         let vy = self.reg_v[y];
+        self.reg_v[0xF] = 0;
         self.reg_v[x] = vx & vy;
     }
 
     fn logical_xor(&mut self, x: usize, y: usize) {
         let vx = self.reg_v[x];
         let vy = self.reg_v[y];
+        self.reg_v[0xF] = 0;
         self.reg_v[x] = vx ^ vy;
     }
 

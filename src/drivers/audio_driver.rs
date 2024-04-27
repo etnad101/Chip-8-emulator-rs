@@ -17,9 +17,6 @@ impl AudioDriver {
 
         let device = audio_subsystem
             .open_playback(None, &desired_spec, |spec| {
-                // Show obtained AudioSpec
-                println!("{:?}", spec);
-
                 // initialize the audio callback
                 SquareWave {
                     phase_inc: 240.0 / spec.freq as f32,
