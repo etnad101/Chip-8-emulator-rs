@@ -341,18 +341,16 @@ impl CPU {
 
     fn skip_if_down(&mut self, x: usize) {
         let vx: u8 = self.reg_v[x];
-        let key: u16 = 1 << vx;
 
-        if self.input.check_key_pressed(key) {
+        if self.input.check_key_pressed(vx) {
             self.pc += 2
         }
     }
 
     fn skip_if_up(&mut self, x: usize) {
         let vx: u8 = self.reg_v[x];
-        let key: u16 = 1 << vx;
 
-        if self.input.check_key_released(key) {
+        if self.input.check_key_released(vx) {
             self.pc += 2
         }
     }
