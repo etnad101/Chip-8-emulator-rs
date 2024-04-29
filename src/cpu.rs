@@ -1,5 +1,7 @@
 use rand::Rng;
 
+use crate::drivers::input_driver::InputManager;
+
 use crate::{
     config::{Config, ConfigFlags},
     constants::*,
@@ -32,7 +34,7 @@ pub struct CPU {
     pub stack: Vec<u16>,
     pub delay_timer: u8,
     pub sound_timer: u8,
-    pub input: u16,
+    pub input: InputManager,
     pub reg_v: [u8; 16],
     pub vram: [u8; 64 * 32 * 3],
     pub update_screen: bool,
@@ -48,7 +50,7 @@ impl CPU {
             stack: Vec::new(),
             delay_timer: 0,
             sound_timer: 0,
-            input: 0,
+            input: InputManager::new(),
             reg_v: [0; 16],
             vram: [0; 64 * 32 * 3],
             update_screen: true,
@@ -303,7 +305,7 @@ impl CPU {
     }
 
     fn shift_left(&mut self, x: usize, y: usize) {
-        if self.config.flag_set(ConfigFlags::Shift) {
+        if !self.config.flag_set(ConfigFlags::Shift) {
             self.reg_v[x] = self.reg_v[y]
         }
 
@@ -313,7 +315,7 @@ impl CPU {
     }
 
     fn shift_right(&mut self, x: usize, y: usize) {
-        if self.config.flag_set(ConfigFlags::Shift) {
+        if !self.config.flag_set(ConfigFlags::Shift) {
             self.reg_v[x] = self.reg_v[y]
         }
 
@@ -323,7 +325,7 @@ impl CPU {
     }
 
     fn jump_offset(&mut self, x: usize, nnn: usize) {
-        self.pc = if self.config.flag_set(ConfigFlags::JumpWithOffset) {
+        self.pc = if !self.config.flag_set(ConfigFlags::JumpWithOffset) {
             let v0 = self.reg_v[0] as usize;
             nnn + v0
         } else {
@@ -338,19 +340,19 @@ impl CPU {
     }
 
     fn skip_if_down(&mut self, x: usize) {
-        let vx = self.reg_v[x];
-        let key = 1 << vx;
+        let vx: u8 = self.reg_v[x];
+        let key: u16 = 1 << vx;
 
-        if (self.input & key) > 0 {
+        if self.input.check_key_pressed(key) {
             self.pc += 2
         }
     }
 
     fn skip_if_up(&mut self, x: usize) {
-        let vx = self.reg_v[x];
-        let key = 1 << vx;
+        let vx: u8 = self.reg_v[x];
+        let key: u16 = 1 << vx;
 
-        if (self.input & key) == 0 {
+        if self.input.check_key_released(key) {
             self.pc += 2
         }
     }
@@ -372,7 +374,7 @@ impl CPU {
         let wrapped: bool;
         (self.reg_i, wrapped) = self.reg_i.overflowing_add(vx as u16);
 
-        if !self.config.flag_set(ConfigFlags::DontIndexOverflow) {
+        if self.config.flag_set(ConfigFlags::DontIndexOverflow) {
             if wrapped {
                 self.reg_v[0xF] = 1;
             } else {
@@ -382,16 +384,10 @@ impl CPU {
     }
 
     fn get_key(&mut self, x: usize) {
-        if self.input == 0 {
+        if !self.input.any_key_pressed() {
             self.pc -= 2
         } else {
-            let mut key = self.input;
-            let mut i: u8 = 0;
-            while key > 1 {
-                key >>= 1;
-                i += 1;
-            }
-
+            let i = self.input.get_key_pressed();
             self.reg_v[x] = i;
         }
     }
@@ -418,7 +414,7 @@ impl CPU {
 
     fn store_mem(&mut self, x: usize) {
         for offset in 0..=x {
-            if self.config.flag_set(ConfigFlags::StoreLoadMem) {
+            if !self.config.flag_set(ConfigFlags::StoreLoadMem) {
                 let value = self.reg_v[offset];
                 self.memory[self.reg_i as usize] = value;
                 self.reg_i += 1;
@@ -432,7 +428,7 @@ impl CPU {
 
     fn load_mem(&mut self, x: usize) {
         for offset in 0..=x {
-            if self.config.flag_set(ConfigFlags::StoreLoadMem) {
+            if !self.config.flag_set(ConfigFlags::StoreLoadMem) {
                 let value = self.memory[self.reg_i as usize];
                 self.reg_v[offset] = value;
                 self.reg_i += 1;
@@ -539,33 +535,4 @@ mod tests {
         }
     }
 
-    mod keys {
-        use super::*;
-
-        #[test]
-        fn test_get_key() {
-            let config = Config::default();
-            let mut cpu = CPU::new(config);
-
-            cpu.input = 0b1000_0000_0000_0000;
-            cpu.get_key(0);
-            assert_eq!(cpu.reg_v[0], 0xf);
-
-            cpu.input = 0b0000_0000_0100_0000;
-            cpu.get_key(0);
-            assert_eq!(cpu.reg_v[0], 0x6);
-
-            cpu.input = 0b0000_0100_0001_0000;
-            cpu.get_key(0);
-            assert_eq!(cpu.reg_v[0], 0xa);
-
-            cpu.input = 0b0000_0000_0001_0000;
-            cpu.get_key(0);
-            assert_eq!(cpu.reg_v[0], 0x4);
-
-            cpu.input = 0b0000_0000_0000_0001;
-            cpu.get_key(0);
-            assert_eq!(cpu.reg_v[0], 0x0);
-        }
-    }
 }

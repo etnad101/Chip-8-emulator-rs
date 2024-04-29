@@ -1,5 +1,5 @@
 use sdl2;
-use sdl2::audio::{AudioDevice, AudioCallback, AudioSpecDesired};
+use sdl2::audio::{AudioCallback, AudioDevice, AudioSpecDesired};
 
 pub struct AudioDriver {
     device: AudioDevice<SquareWave>,
@@ -12,7 +12,7 @@ impl AudioDriver {
         let desired_spec = AudioSpecDesired {
             freq: Some(44100),
             channels: Some(1), // mono
-            samples: None, // default sample size
+            samples: None,     // default sample size
         };
 
         let device = audio_subsystem
@@ -37,9 +37,6 @@ impl AudioDriver {
     }
 }
 
-
-
-
 struct SquareWave {
     phase_inc: f32,
     phase: f32,
@@ -56,5 +53,4 @@ impl AudioCallback for SquareWave {
             self.phase = (self.phase + self.phase_inc) % 1.0;
         }
     }
-
 }
